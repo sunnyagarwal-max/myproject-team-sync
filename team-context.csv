@@ -1,0 +1,15 @@
+Developer Name,Date,Context
+Sunny Agarwal,2026-10-22T10:58:37.795Z,"**Project overview of Auto Task via Google Meeting (Salesforce DX), with risks found**
+
+This was a read-only review of the whole project. No code was changed. The app connects each user to Google, and a scheduled job then works through each active Meeting_Configuration__c in turn. For each one it pulls the Gemini meeting notes from Google Drive (Google Docs whose names start with '<Config Name> -'), reads the 'Suggested next steps' section and creates Meeting_Task__c records with status 'Pending Reviewed'. When a task is approved, a record-triggered flow creates a standard Task. The review found a deployment blocker and a silent-failure bug, listed under open issues.
+
+**Open issues**
+- MeetingTaskBatch calls MeetingTaskHelper.getAssigneeIdByNameMatch, but no MeetingTaskHelper class exists in force-app. Deploying from this repo will fail unless the class already exists in the target org. Get it from the org or write it.
+- If GoogleAuth.getValidAccessToken() returns a blank token, MeetingNotesQueueable.execute returns without calling moveToNext(). The job chain stops, so every configuration after the failing one is skipped for that run. That return also comes before `insert logs`, so the 'Authentication token is blank.' Meeting_Log__c is never saved and the failure leaves no record.
+- Tokens come from the running user's User record (GoogleAuth.getValidAccessToken). The scheduled job therefore uses the Google account of whoever scheduled it, not the account of each configuration's owner.
+- objects/User/ has about 90 field files from managed packages (Pardot, Maps, SBQQ, et4ae5 and others). Only the four Google_* fields belong to this project. Deploying the whole folder may conflict with those packages, so consider trimming it.
+- There are no Apex test classes or LWC Jest tests in the repo, so the code can't reach the test coverage Salesforce requires to deploy to production.
+- Video_Meeting__c appears to be an older data model that the main notes-to-tasks process doesn't use. It is a candidate for removal once that is confirmed.
+- The project folder is not a git repository yet.
+
+**Touched:** force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingNotesScheduler.cls, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/flows/Meeting_Task_After_Save_Flow.flow-meta.xml, force-app/main/default/objects/User/fields"
