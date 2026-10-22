@@ -13,3 +13,14 @@ This was a read-only review of the whole project. No code was changed. The app c
 - The project folder is not a git repository yet.
 
 **Touched:** force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingNotesScheduler.cls, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/flows/Meeting_Task_After_Save_Flow.flow-meta.xml, force-app/main/default/objects/User/fields"
+Sunny Agarwal,2026-10-22T15:16:54.894Z,"**Options for upgrading the project: API version, tooling and Google auth design**
+
+The user asked how to upgrade the project. Claude answered with recommendations only and changed no code. The user has not yet said which kind of upgrade they mean, and nothing has been decided. The suggested order was: run git init, align the API version, retrieve or write MeetingTaskHelper, add Apex tests with HttpCalloutMock, then move Google OAuth to Named Credentials.
+
+**Open issues**
+- API version mismatch: sfdx-project.json has sourceApiVersion 65.0, but all 11 versioned metadata files are on 66.0. Align them, using the org's maximum version from `sf org display` if you want the latest.
+- OAuth is built by hand. GoogleAuth hardcodes the Google auth and token URLs, GoogleCalendarService.cls also calls the token endpoint itself, endpoints are allowed through Remote Site Settings, and access and refresh tokens are stored in custom Google_* fields on User, where they may be readable. Proposed fix (not agreed yet): an External Credential with per-user principals plus a Named Credential, called as `callout:...`. This would also remove most of GoogleAuth and the GoogleOAuthCallback Visualforce page, and it is the natural place to fix the scheduled-job running-user problem.
+- Since the folder is not a git repo, the husky and lint-staged pre-commit hooks in package.json never run.
+- Upgrading the npm dev dependencies (ESLint 9 and the LWC plugins) may need changes to eslint.config.js.
+
+**Touched:** sfdx-project.json, package.json, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/classes/GoogleCalendarService.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/pages/GoogleOAuthCallback.page, force-app/main/default/remoteSiteSettings, User.Google_* fields"
