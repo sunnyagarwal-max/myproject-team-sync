@@ -45,3 +45,12 @@ The user asked how many objects the app needs. The answer was 5: four custom obj
 - objects/User/fields has 113 files. Only the 4 Google_* fields belong to this project, so deploy just those.
 
 **Touched:** force-app/main/default/objects/Meeting_Configuration__c, force-app/main/default/objects/Meeting_Note__c, force-app/main/default/objects/Meeting_Task__c, force-app/main/default/objects/Meeting_Log__c, force-app/main/default/objects/Google_Token__mdt, force-app/main/default/objects/Video_Meeting__c, force-app/main/default/objects/User/fields, force-app/main/default/applications/Auto_Task_via_Google_Meeting.app-meta.xml, force-app/main/default/permissionsets/Video_Meeting_PS.permissionset-meta.xml"
+Sunny Agarwal,2026-10-22T15:39:59.629Z,"**Build vs buy: is there an off-the-shelf alternative to Auto Task via Google Meeting?**
+
+The user asked whether a standard extension already does what this app does. Web research found nothing that reads Gemini's 'Take notes for me' Docs and creates Salesforce Tasks with a review step, so the custom app still fills a real gap. Products that overlap are Salesforce Einstein Conversation Insights (ECI) and third-party AI note-takers. No code was changed and no build-vs-buy decision was made. The user has not confirmed whether 'extension' meant a VS Code extension or something else.
+
+**Open issues**
+- Not yet decided whether to keep the custom app or switch. The open issues from earlier handoffs (the token leak in GoogleGeminiService, the missing MeetingTaskHelper, no tests) count toward that choice.
+- ECI is the closest Salesforce-native option, and a third-party guide lists Google Meet as a native integration. But it needs a separate paid Sales Cloud Einstein add-on, it works from recorded meetings rather than Gemini notes Docs, and nothing found shows it creating Task records with a review/approve step like this app's 'Pending Reviewed' flow. Check this in a trial before relying on it.
+- Einstein Activity Capture and the Salesforce Gmail/Chrome extension only sync emails and calendar events. They do not turn meeting notes into tasks, so they are not alternatives.
+- Third-party tools (tl;dv, Gong, Avoma, Fireflies, Fathom) push action items to Salesforce but use their own recorder bot instead of Gemini and are priced per user, so adopting one replaces the Gemini workflow rather than extending it."
