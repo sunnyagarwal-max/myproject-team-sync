@@ -24,3 +24,24 @@ The user asked how to upgrade the project. Claude answered with recommendations 
 - Upgrading the npm dev dependencies (ESLint 9 and the LWC plugins) may need changes to eslint.config.js.
 
 **Touched:** sfdx-project.json, package.json, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/classes/GoogleCalendarService.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/pages/GoogleOAuthCallback.page, force-app/main/default/remoteSiteSettings, User.Google_* fields"
+Sunny Agarwal,2026-10-22T15:18:49.797Z,"**Enterprise-readiness assessment of Auto Task via Google Meeting, which found a token leak to the browser**
+
+The user asked whether the project is ready for enterprise use. The verdict was no: it is a single-org proof of concept. Rechecking the code found a new critical security issue: every connected user's Google access token is sent to the browser. It also confirmed that tokens and the OAuth client secret are stored in plain text. No code was changed. Claude offered to fix the token leak, and the user has not replied yet.
+
+**Open issues**
+- CRITICAL: the user-filter method in GoogleGeminiService (about line 105) runs SELECT Id, Name, Google_Access_Token__c FROM User and returns those User records through an @AuraEnabled UserFilterWrapper.users. Any user who can open the LWC can read every connected colleague's live Google token in browser dev tools, and that token can read their Drive. Fix: remove the token from the query (use the token only for a server-side filter, or a separate IsNotBlank check) or return a DTO with only Id and Name. Fix this before any further rollout.
+- The Google_Access_Token__c and Google_Refresh_Token__c fields on User are unencrypted LongTextArea fields. Meeting_PS gives read and edit access to both, and Video_Meeting_PS also grants permissions on them, so admins and permission-set holders can see the tokens.
+- The Google_Token__mdt object, which holds Client_Secret__c (a plain Text field), has Public visibility, so the OAuth client secret is not protected. This adds to the case for the proposed (not yet agreed) move to an External Credential with per-user principals plus a Named Credential.
+- Other enterprise gaps: an AppExchange security review is needed if the app will be sold; the Drive-wide OAuth scope usually needs approval from the customer's Google Workspace admin; and token revocation, callout limits and scaling to many configurations are not handled.
+
+**Touched:** force-app/main/default/classes/GoogleGeminiService.cls, force-app/main/default/permissionsets/Meeting_PS.permissionset-meta.xml, force-app/main/default/permissionsets/Video_Meeting_PS.permissionset-meta.xml, force-app/main/default/objects/Google_Token__mdt (Client_Secret__c), User.Google_Access_Token__c, User.Google_Refresh_Token__c"
+Sunny Agarwal,2026-10-22T15:19:50.570Z,"**Object inventory for Auto Task via Google Meeting: what to deploy and what's legacy**
+
+The user asked how many objects the app needs. The answer was 5: four custom objects (Meeting_Configuration__c, Meeting_Note__c, Meeting_Task__c, Meeting_Log__c) and the Google_Token__mdt custom metadata type, plus the 4 Google_* fields on User. All are already defined in force-app/main/default/objects and get created by deploying the folder. Nothing in the project was changed.
+
+**Open issues**
+- Video_Meeting__c is confirmed unused by Apex. Only the Auto_Task_via_Google_Meeting app and the Video_Meeting_PS permission set refer to it. If you remove the object, remove those references too or the deploy will fail.
+- Google_Token__mdt (Google OAuth config, read by GoogleAuth and GoogleCalendarService) is easy to miss: it is a custom metadata type, not a custom object, and it needs its records filled in after deploy.
+- objects/User/fields has 113 files. Only the 4 Google_* fields belong to this project, so deploy just those.
+
+**Touched:** force-app/main/default/objects/Meeting_Configuration__c, force-app/main/default/objects/Meeting_Note__c, force-app/main/default/objects/Meeting_Task__c, force-app/main/default/objects/Meeting_Log__c, force-app/main/default/objects/Google_Token__mdt, force-app/main/default/objects/Video_Meeting__c, force-app/main/default/objects/User/fields, force-app/main/default/applications/Auto_Task_via_Google_Meeting.app-meta.xml, force-app/main/default/permissionsets/Video_Meeting_PS.permissionset-meta.xml"
