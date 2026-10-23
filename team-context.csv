@@ -229,3 +229,21 @@ The user asked for a full explanation of calendarDebugger, including what each m
 - The component is exposed on App, Record and Home pages. Remove it, or stop exposing it, before release so it isn't placed on a page by mistake.
 
 **Touched:** force-app/main/default/lwc/calendarDebugger (js, html, js-meta.xml), staticresource FullCalendarPremiumV6, BFF_SCH_FullCalendarController.getLicenseKey"
+Sunny Kumar Agarwal,2026-10-23T09:18:13.992Z,"**Read-only review of the bffSchResourceConflictModal LWC (reschedule conflict prompt), plus how to check token usage**
+
+The user asked for a full explanation of bffSchResourceConflictModal and whether to switch it to imperative Apex calls instead of @wire. It is a 49-line modal with no data access of its own. When a dragged appointment conflicts with busy resources, it shows which resources are busy and fires openmodal, selectnewtime or cancel. The parent calendars (bffSchFullCalendarV7, bffSchActivityCalendar, bffSchActivityCalendarV7) handle these events. It makes no Apex calls and has no @wire, so there is nothing to convert. No code was changed. The user also asked how many tokens the chat used. Claude cannot see exact figures; /cost (pay-per-use API billing) or /usage (subscription plans) shows them.
+
+**Decisions**
+- No imperative-vs-wire conversion is needed, because the component calls no Apex. Keep it free of data access. If Apex is ever needed, call it imperatively from the parent, which follows the earlier bffSchActivityCalendar decision.
+- In bffSchFullCalendarV7, isCrossPropertyBufferConflict is set only when EVERY conflict that can be shown in the modal has the reason CROSS_PROPERTY_BUFFER. It switches the message to the cross-property travel wording.
+
+**Open issues**
+- bffSchActivityCalendar and bffSchActivityCalendarV7 pass conflict-type and available-alternatives to the modal, but neither is an @api property on it. The values are silently ignored. Remove them, or add the properties if the message should name the resource type.
+- Escape-to-close rarely works. handleKeyDown is on a section with tabindex=-1 that never receives focus (there is no .focus() in renderedCallback), and keyboard focus is not kept inside the modal.
+- In all three parents, New Time and Cancel do the same thing: both undo the drag. Confirm whether New Time should do something different.
+- If buffer conflicts are mixed with other conflict types, the generic message is shown and the cross-property travel reason is not mentioned.
+- The legacy parents never set isCrossPropertyBufferConflict and do not handle ABSENCE or CROSS_PROPERTY_BUFFER conflicts, which matches the earlier bffSchActivityCalendarV7 open issue.
+- The modal is hand-built from slds-modal markup instead of LightningModal, and the close button has no aria-label.
+- Token cost: .claude/team-context.md is loaded into every request through CLAUDE.md, so each synced handoff makes every message more expensive (about 65k tokens of context in this short chat). Consider trimming or archiving older handoffs.
+
+**Touched:** force-app/main/default/lwc/bffSchResourceConflictModal (js, html, js-meta.xml), lwc/bffSchFullCalendarV7 (js lines ~1806-1889, html line 31), lwc/bffSchActivityCalendar (js lines ~651-719, html line 41), lwc/bffSchActivityCalendarV7 (html line 41), .claude/team-context.md"
