@@ -68,3 +68,12 @@ This continues the build vs buy discussion. Claude recommended continuing to bui
 - Offered next steps the user has not taken up: a per-user pricing model, and fixing the token leak, which is needed either way.
 
 **Touched:** force-app/main/default/classes/GoogleAuth.cls (OAuth scopes, lines 11-13), force-app/main/default/objects/Google_Token__mdt, force-app/main/default/classes/GoogleGeminiService.cls, MeetingTaskHelper (missing), force-app/main/default/objects/Video_Meeting__c, force-app/main/default/objects/User/fields"
+Sunny Agarwal,2026-10-23T05:22:23.533Z,"**Which Salesforce org this project targets, plus a second org found in the local CLI cache**
+
+The user asked which org the project is built on. The default target alias kapil_GoogleOrg (set in .sf/config.json and .sfdx/sfdx-config.json) resolves through `sf org display` to org ID 00DKd00000G86nGMAR, username kapil.jangid@appsavio.com.apk12, instance https://ap1741063937849.my.salesforce.com. That is a production or Developer Edition login, not a sandbox. The local CLI cache also holds metadata from a second org, so someone has run commands against another org from this folder. No code was changed.
+
+**Open issues**
+- The local CLI cache has metadata from a second org, 00Dg5000005rrsvEAA, as well as the default org 00DKd00000G86nGMAR. Nobody has identified which org that is or why it was used. Check that it is the intended one before running any deploy or retrieve that passes --target-org.
+- The project logs in through login.salesforce.com, so deploys go to a production or Developer Edition org, not a sandbox. Keep that in mind because the code has no Apex test classes and is missing MeetingTaskHelper (see earlier handoffs).
+
+**Touched:** .sf/config.json, .sfdx/sfdx-config.json, sfdx-project.json, .sf/orgs/00Dg5000005rrsvEAA/metadata-catalog, .sf/orgs/00DKd00000G86nGMAR/metadata-catalog"
