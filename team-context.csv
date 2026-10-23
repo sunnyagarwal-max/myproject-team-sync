@@ -97,3 +97,21 @@ All 5 objects (4 custom objects plus Google_Token__mdt) were already in the repo
 - Assignee matching uses first names only, so users with the same first name, or steps that don't name anyone, produce unassigned tasks. Matching on full names would need MeetingTaskBatch to query LastName/Name too.
 
 **Touched:** force-app/main/default/classes/MeetingTaskHelper.cls, MeetingTaskHelperTest.cls, GoogleHttpCalloutMock.cls, GoogleAuthTest.cls, GoogleOAuthCallbackControllerTest.cls, GoogleCalendarServiceTest.cls, GoogleGeminiServiceTest.cls, MeetingTaskBatchTest.cls, MeetingNotesQueueableTest.cls, MeetingNotesSchedulerTest.cls (each with its -meta.xml, API 66.0), MeetingTaskBatch.cls (calls the helper), MeetingNotesQueueable.cls (bug), customMetadata/Google_Token.Google_Token.md-meta.xml, flows/Meeting_Task_After_Save_Flow.flow-meta.xml"
+unknown,2026-10-23T06:17:43.085Z,"**Read-only review of BFF_SCH_ActivityCalendarHandler (Blackberry Scheduler activity calendar Apex controller)**
+
+The user asked for a description of BFF_SCH_ActivityCalendarHandler, and the whole 1,866-line class was read. It is the Apex controller for the activity calendar LWCs (bffSchFullCalendarV7, bffSchCalendarFilterbar, legacy activityCalendarV7). It loads calendar metadata, appointments, shifts (Recurring ones expanded) and absences. It runs availability, prep/cleanup and cross-property buffer conflict checks, suggests alternative resources, checks staff skills, and reschedules appointments with resource swaps. No code was changed. The companion test class BFF_SCH_ActivityCalendarHandlerTest was not read.
+
+**Decisions**
+- No code decisions were made; this was a read-only review.
+- rescheduleAppointment deliberately runs in this order. It clears IsPrimaryResource on outgoing resources (FSL refuses to delete a primary resource) and deletes them. It then updates the appointment times and inserts the incoming resources last. Otherwise the ServiceAppointment before-update trigger would check the old resource against the new time and wrongly block the move. Keep this order if you refactor.
+- Booking logic was deliberately consolidated into BFF_SCH_AppointmentSaveService.saveAppointmentWithAttendees for the current fullCalendarV7 calendar. It was never ported back to this handler.
+
+**Open issues**
+- bookServiceAppointment is a stub that always returns success=false and 'Booking from this calendar view is not yet implemented.' It exists only so legacy activityCalendarV7 compiles. Anyone booking from that view gets this error until it is implemented or the view is retired.
+- buildAssignedResources is private and has no caller in the class, so it looks like dead code.
+- The ConflictDetail.conflictReason comment lists only APPOINTMENT_OVERLAP and SHIFT_COVERAGE. checkResourceAvailability also emits ABSENCE and CROSS_PROPERTY_BUFFER. Any front-end code that switches on the reason must handle all four.
+- ResourceConflictResult.conflictType is declared but checkTimeConflict never sets it.
+- The conflict checks do not use one common rule for which appointment statuses count as cancelled. Some use the BFF_SCH_Constants.SERVICEAPPOINTMENT_CANCELLED_STATUSES list. Others hardcode 'Canceled'. getAvailableAlternatives does not filter cancelled appointments when finding busy resources.
+- Shift matching depends on BFF_SCH_ShiftRecurrenceUtil, which works in Eastern-time dates. Any change to recurring-shift behaviour must also be made in the several parallel queries in this class (getApp..., checkResourceAvailability, validateResourcesForUpdate, getAvailableAlternatives, and the prep/cleanup checks).
+
+**Touched:** force-app/main/default/classes/BFF_SCH_ActivityCalendarHandler.cls, BFF_SCH_ActivityCalendarHandlerTest.cls, BFF_SCH_ActivityCalendarService, BFF_SCH_ShiftRecurrenceUtil, BFF_SCH_ResourceConflictService, BFF_SCH_AppointmentSaveService, lwc/bffSchFullCalendarV7, lwc/bffSchCalendarFilterbar, activityCalendarV7 LWC (legacy), permission sets BFF_SCH_Scheduler_Agent / Concierge / Dept_Manager / Events"
