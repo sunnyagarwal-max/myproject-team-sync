@@ -215,3 +215,17 @@ The user asked why the bffSchActivityCalendar LWC calls Apex imperatively rather
 - bffSchActivityCalendar.js seems to duplicate the legacy bffSchActivityCalendarV7 reschedule flow, including its silent failures: a reschedule or availability-check error only logs to the console and reverts the drag, with no toast. Fixes may be needed in both components.
 
 **Touched:** force-app/main/default/lwc/bffSchActivityCalendar/bffSchActivityCalendar.js, force-app/main/default/classes/BFF_SCH_ActivityCalendarHandler.cls (getCalendarsAllMetadata, getAppAndShiftForSelectedDateForGivenResource, checkResourceAvailability, getAvailableAlternatives, rescheduleAppointment), force-app/main/default/classes/BFF_SCH_FullCalendarController.cls (getLicenseKey)"
+Sunny Kumar Agarwal,2026-10-23T08:47:51.486Z,"**Read-only review of the calendarDebugger LWC (FullCalendar v6 LWS compatibility test harness)**
+
+The user asked for a full explanation of calendarDebugger, including what each method and parameter does, and whether to switch it to imperative Apex calls instead of @wire. The component is a 47-line throwaway harness that loads the FullCalendarPremiumV6 static resource and renders a dayGridMonth calendar, to check whether FullCalendar v6 works under Lightning Web Security. It makes no Apex calls and has no @wire, so there is nothing to convert. No other component references it. No code was changed.
+
+**Decisions**
+- No imperative-vs-wire conversion is needed, because the component calls no Apex. If Apex is added later (for example to fetch the license key), call it imperatively. This follows the bffSchActivityCalendar decision that FullCalendar setup must run in a fixed order.
+
+**Open issues**
+- The harness does not prove the premium Scheduler plugin works under LWS. It renders only dayGridMonth, a free view, with the hardcoded non-commercial key 'CC-Attribution-NonCommercial-NoDerivatives', while the real calendars use resource views and get the key from BFF_SCH_FullCalendarController.getLicenseKey. To make it a meaningful check, switch it to a resource view (for example resourceTimeGridDay) that uses the Apex key.
+- Code issues found but not fixed: the local FullCalendar variable (line 24) is ignored and window.FullCalendar is used instead, so the window.default fallback does nothing; loadStyle is imported but never used; the 100 ms setTimeout is unnecessary; analyzeError calls err.message.includes without a null check, so a non-Error throw crashes it; the initialized field is not declared.
+- The meta file uses apiVersion 65.0, while the rest of the project's metadata is on 66.0.
+- The component is exposed on App, Record and Home pages. Remove it, or stop exposing it, before release so it isn't placed on a page by mistake.
+
+**Touched:** force-app/main/default/lwc/calendarDebugger (js, html, js-meta.xml), staticresource FullCalendarPremiumV6, BFF_SCH_FullCalendarController.getLicenseKey"
