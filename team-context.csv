@@ -164,3 +164,6 @@ The user asked for a 10-line explanation of bffSchActivityCalendarV7. The full J
 - The edit-mode handleModalSave path without a start-time change only updates the local FullCalendar event (title, extended props) and does not persist anything.
 
 **Touched:** force-app/main/default/lwc/bffSchActivityCalendarV7 (js, html), lwc/bffSchActivityCalendarModal, lwc/bffSchResourceConflictModal, BFF_SCH_ActivityCalendarHandler (getCalendarsAllMetadata, getAppAndShiftForSelectedDateForGivenResource, checkResourceAvailability, getAvailableAlternatives, rescheduleAppointment, bookServiceAppointment), BFF_SCH_FullCalendarController.getLicenseKey, BFF_SCH_AppointmentSaveService, lwc/bffSchFullCalendarV7"
+
+
+ayush sharma, test, test description
