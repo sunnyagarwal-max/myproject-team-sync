@@ -115,3 +115,22 @@ The user asked for a description of BFF_SCH_ActivityCalendarHandler, and the who
 - Shift matching depends on BFF_SCH_ShiftRecurrenceUtil, which works in Eastern-time dates. Any change to recurring-shift behaviour must also be made in the several parallel queries in this class (getApp..., checkResourceAvailability, validateResourcesForUpdate, getAvailableAlternatives, and the prep/cleanup checks).
 
 **Touched:** force-app/main/default/classes/BFF_SCH_ActivityCalendarHandler.cls, BFF_SCH_ActivityCalendarHandlerTest.cls, BFF_SCH_ActivityCalendarService, BFF_SCH_ShiftRecurrenceUtil, BFF_SCH_ResourceConflictService, BFF_SCH_AppointmentSaveService, lwc/bffSchFullCalendarV7, lwc/bffSchCalendarFilterbar, activityCalendarV7 LWC (legacy), permission sets BFF_SCH_Scheduler_Agent / Concierge / Dept_Manager / Events"
+unknown,2026-10-23T06:30:17.668Z,"**Read-only review of the bffSchActivityCalendarModal LWC (create/edit appointment modal)**
+
+The user asked for a 10-line explanation of bffSchActivityCalendarModal. The template and JS were read (JS lines 1-1560 and 5485-5745 in full; the rest was located only by grep). The component is a ~6,000-line modal for creating and editing Blackberry Scheduler appointments. It validates and collects the booking data but does no DML. It fires a `save` event with the payload, and the parent calendar does the saving. No code was changed.
+
+**Decisions**
+- The modal deliberately does not save anything. `handleBookAppointment` and `handleUpdateAppointment` build a payload and dispatch `save`; the parent (full calendar) calls BFF_SCH_AppointmentSaveService.saveAppointmentWithAttendees. This matches the earlier decision that booking logic lives in that service.
+- Async availability loaders (equipment, vehicles, additional staff, resource requirements) use sequence counters (`_equipmentLoadSeq`, `_vehicleLoadSeq`, `_staffLoadSeq`, `_resourceRequirementRequestSeq`) so a slow, stale response can't overwrite a newer one. Resource-requirement reconciliation is debounced (250 ms). Keep both when refactoring.
+- Reloads keep the user's unsaved picks (rooms, equipment, vehicles, staff) because the server's isSelected only reflects saved AssignedResource records.
+- Unavailable resources are pre-marked red but stay selected until the user clicks the 'x'. If they save without removing them, the save-time `validateResourcesForUpdate` check blocks the save again.
+- In edit mode, price changes are limited to super users/admins or holders of the BFF_SCH_Edit_Activity_Price custom permission. Booking Outside Reservation and Ignore Prep/Clean toggles are limited to super users/admins. Guest Buffer Time needs the Edit_Guest_Buffer_Time custom permission.
+- When the Second Guest Price is blank and there are 2+ attendees, the payload sends the First price at full value and a blank Second price instead of the split per-guest amounts, so edit mode can re-split later.
+
+**Open issues**
+- handleUpdateAppointment (~line 3845), mapIncomingData (~line 2455), handleCancelAppointment, handleApplyDiscount and the middle of the JS (lines ~1560-5485) were not read line by line. Edit-mode behaviour in this review comes from comments and handler names only.
+- Resource availability and requirement rules are checked in two places: the modal's live per-tab loaders and the save-time validateResourcesForUpdate call. Changes to availability rules must be made in both, and in the similar Apex queries noted in the earlier ActivityCalendarHandler handoff.
+- The modal's `checkTimeConflict` is documented as applying only to new bookings, but the code also passes eventId in edit mode. It is unclear whether edit mode is meant to be covered.
+- The component is very large and holds a lot of state. There are separate sets for original, added, removed and unavailable resources, and several pending-primary fields, so changes here are easy to get wrong.
+
+**Touched:** force-app/main/default/lwc/bffSchActivityCalendarModal (js, html, css), BFF_SCH_ActivityCalendarHandler (checkTimeConflict, validateResourcesForUpdate, getAppointmentDetails), BFF_SCH_ActivityCalendarService, BFF_SCH_ActivityCalendarHelper, BFF_SCH_FullCalendarController, BFF_SCH_AttendeeAvailabilityService, BFF_SCH_LocationCapacityService, BFF_SCH_ResourceRequirementService, BFF_SCH_ActivityCancelController, BFF_SCH_AppointmentSaveService, lwc/bffSchApplyDiscountModal, lwc/bffSchCancelAppointmentModal"
