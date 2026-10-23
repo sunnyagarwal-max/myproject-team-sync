@@ -147,3 +147,20 @@ The user asked for a 5-line description of the meetingConfiguration LWC. The com
 - handleOAuthCallback reads ?code= from the page URL. This only works if the OAuth redirect lands on the page that hosts this LWC. See the earlier handoff about the separate GoogleOAuthCallback VF page and the proposed move to Named Credentials.
 
 **Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, css, js-meta.xml), GoogleAuth (getAuthUrl, isUserAuthenticated, requestAccessToken, getAuthenticatedEmail, logoutUser), GoogleCalendarService (getMyMeetings, syncMeetingsToDb), Meeting_Configuration__c, staticresource GoogleIcon"
+Aradhya Gupta,2026-10-23T06:44:37.708Z,"**Read-only review of bffSchActivityCalendarV7 LWC (legacy resource-column day calendar)**
+
+The user asked for a 10-line explanation of bffSchActivityCalendarV7. The full JS and HTML were read and no code was changed. The component is a FullCalendar Scheduler day view with one column per Service Resource. It loads appointments, shifts, and prep/cleanup blocks, and supports drag/resize rescheduling with a Room → Staff → Vehicle conflict-resolution flow. Creating a new appointment from this view always fails because the Apex bookServiceAppointment it calls is a stub.
+
+**Decisions**
+- No code decisions were made; this was a read-only review.
+- Booking is intentionally not implemented in this component's Apex path. Real booking lives in bffSchFullCalendarV7 via BFF_SCH_AppointmentSaveService.saveAppointmentWithAttendees, consistent with the earlier handoff decision.
+- Reschedule orchestration order is: checkResourceAvailability, then shift-coverage hard stop, then a conflict queue (Room → Staff → Vehicle), then getAvailableAlternatives and the conflict modal, then rescheduleAppointment with the resource swaps. A cross-column drag is treated as a staff swap. Keep this flow if you refactor.
+
+**Open issues**
+- Creating a new appointment from this view always fails. createNewAppointment calls the Apex stub bookServiceAppointment, which returns success=false with 'Booking from this calendar view is not yet implemented.' Either implement it or retire this view.
+- executeReschedule fails silently. If rescheduleAppointment throws, it only does console.error and reverts the drag. The user sees no toast. initiateAvailabilityCheck does the same when checkResourceAvailability errors or throws.
+- The component only handles shift-coverage and appointment-overlap conflicts. Conflicts with reason ABSENCE or CROSS_PROPERTY_BUFFER, which the handler also emits, are not special-cased and fall into the overlap queue.
+- Availability and conflict rules live in both the Apex handler and the modal, so any rule change must be made in all of those places (see earlier handoffs).
+- The edit-mode handleModalSave path without a start-time change only updates the local FullCalendar event (title, extended props) and does not persist anything.
+
+**Touched:** force-app/main/default/lwc/bffSchActivityCalendarV7 (js, html), lwc/bffSchActivityCalendarModal, lwc/bffSchResourceConflictModal, BFF_SCH_ActivityCalendarHandler (getCalendarsAllMetadata, getAppAndShiftForSelectedDateForGivenResource, checkResourceAvailability, getAvailableAlternatives, rescheduleAppointment, bookServiceAppointment), BFF_SCH_FullCalendarController.getLicenseKey, BFF_SCH_AppointmentSaveService, lwc/bffSchFullCalendarV7"
