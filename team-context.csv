@@ -164,6 +164,39 @@ The user asked for a 10-line explanation of bffSchActivityCalendarV7. The full J
 - The edit-mode handleModalSave path without a start-time change only updates the local FullCalendar event (title, extended props) and does not persist anything.
 
 **Touched:** force-app/main/default/lwc/bffSchActivityCalendarV7 (js, html), lwc/bffSchActivityCalendarModal, lwc/bffSchResourceConflictModal, BFF_SCH_ActivityCalendarHandler (getCalendarsAllMetadata, getAppAndShiftForSelectedDateForGivenResource, checkResourceAvailability, getAvailableAlternatives, rescheduleAppointment, bookServiceAppointment), BFF_SCH_FullCalendarController.getLicenseKey, BFF_SCH_AppointmentSaveService, lwc/bffSchFullCalendarV7"
-
-
 ayush sharma, test, test description
+Aradhya Gupta,2026-10-23T06:47:57.333Z,"**Read-only review of BFF_SCH_ActivityCalendarHelper (room availability and resource requirement Apex helper)**
+
+The user asked for a 5-line explanation of BFF_SCH_ActivityCalendarHelper, and the whole class was read. It is the @AuraEnabled helper for room logic in the scheduler. It checks whether an appointment's rooms can move to a new time, lists available and unavailable rooms for a new booking, and returns the resources that satisfy a work type's requirements. No code was changed.
+
+**Decisions**
+- No code decisions were made; this was a read-only review.
+- Both room checks use the same order: expand the window by prep/clean-up minutes, check appointment overlap, check gap-free confirmed shift coverage for the property (Recurring shifts via BFF_SCH_ShiftRecurrenceUtil and BFF_SCH_ActivityCalendarService.isWindowFullyCoveredByShifts), then check ResourceAbsence. Keep this order and these shared helpers if you refactor.
+
+**Open issues**
+- The two methods use different cancelled-status rules. getRoomAvailabilityForReschedulingAppointment uses BFF_SCH_Constants.SERVICEAPPOINTMENT_CANCELLED_STATUSES. getAllRoomForNewAppointment hardcodes NOT IN ('Canceled') (line ~186). Cancelled-like statuses beyond 'Canceled' would block rooms for new bookings but not for reschedules. This is the same inconsistency the earlier ActivityCalendarHandler handoff recorded.
+- getAllRoomForNewAppointment sets isThereAvailableRoom = true even when every room is unavailable (the early returns at lines ~201, 250 and 270). The flag appears to mean 'there are rooms to show', not 'a room is free'. Check how bffSchActivityCalendarModal uses it before relying on it, or before changing it.
+- The shift, absence and overlap rules are duplicated here and in BFF_SCH_ActivityCalendarHandler. A rule change, such as recurring-shift behaviour, must be made in all of those places. The two room methods in this class also duplicate each other's shift-grouping code.
+- getRoomAvailabilityForReschedulingAppointment reads BFF_SCH_Prep_Time__c and BFF_SCH_Clean_Up_Time__c with Integer.valueOf. A null value on the appointment would throw instead of defaulting to 0.
+
+**Touched:** force-app/main/default/classes/BFF_SCH_ActivityCalendarHelper.cls, BFF_SCH_ActivityCalendarService (isWindowFullyCoveredByShifts), BFF_SCH_ShiftRecurrenceUtil, BFF_SCH_Constants"
+Aradhya Gupta,2026-10-23T07:18:16.758Z,"**Read-only review of BFF_SCH_ActivityCalendarService (equipment, vehicle and staff availability for the appointment modal)**
+
+The user asked for a 10-line explanation of BFF_SCH_ActivityCalendarService, and the whole 967-line class was read. No code was changed. It is a without-sharing Apex class that the create/edit appointment modal (bffSchActivityCalendarModal) calls for Equipment, Vehicle and Additional Staff availability and for the primary-staff check. It was split out of BFF_SCH_ActivityCalendarHandler to keep Asset availability apart from reschedule and conflict orchestration. The companion test class was not looked at.
+
+**Decisions**
+- The WorkType passed in from the modal takes precedence over the saved appointment's WorkType, even in edit mode, so switching Activity before saving updates the lists straight away. Only when no workTypeId is passed does it fall back to the appointment's persisted WorkType. Keep this rule.
+- If the WorkType has no SkillRequirement rows, Equipment, Vehicle and Additional Staff all return an empty list. This is deliberate: it means that resource type is not needed for the activity, matching how Room behaves.
+- A resource counts as available only if all three hold: no overlapping non-cancelled appointment (the appointment being edited is excluded), a Confirmed Shift fully covers the prep + appointment + cleanup window with no gaps, and no overlapping ResourceAbsence.
+- A resource needs to match only ANY ONE of the WorkType's required skills, not all of them, because one WorkType can carry skill requirements meant for several resource types.
+- Resources already assigned to the appointment are returned as isSelected=true even when unavailable, so they show as pre-selected (US-008149). This ties in with the modal's keep-red-until-removed behaviour from the earlier modal handoff.
+
+**Open issues**
+- Cancelled status is hardcoded as Status != 'Canceled' in every overlap query. It does not use BFF_SCH_Constants.SERVICEAPPOINTMENT_CANCELLED_STATUSES, which matches the inconsistency in the earlier handler handoff.
+- Availability rules (shift coverage, overlap, absence, recurring-shift handling) are duplicated here and in BFF_SCH_ActivityCalendarHandler. Rule changes must be made in both, as well as in the modal's save-time validateResourcesForUpdate check.
+- The Additional Staff busy query (resolveBusyStaffResourceIds) does not filter AssignedResource by candidate ids, so it scans all overlapping assignments in the window. This could be slow or hit limits in a busy org.
+- The primary-staff busy check (isPrimaryStaffBusy) uses SchedStartTime/SchedEndTime. The Equipment, Vehicle and Staff checks use BFF_SCH_Working_Start_Time__c/End_Time__c, which include prep and cleanup. The primary-staff check therefore ignores the prep/cleanup window, and isPrimaryStaffAvailable also ignores it for shift coverage. Check whether that is intended.
+- The WorkType and ServiceAppointment lookups in resolveWorkTypeContext and resolveStaffWorkTypeContext use [SELECT ... LIMIT 1] with no empty check. A stale or invalid id throws a QueryException instead of returning empty rows. The two methods are near copies, differing only in null-safe navigation.
+- EquipmentAvailabilityWrapper.isAssigned is declared but never set. Do not rely on it.
+
+**Touched:** force-app/main/default/classes/BFF_SCH_ActivityCalendarService.cls, BFF_SCH_ShiftRecurrenceUtil (isWindowFullyCovered, toEasternDate), BFF_SCH_ActivityCalendarHandler, lwc/bffSchActivityCalendarModal"
