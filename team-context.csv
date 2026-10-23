@@ -200,3 +200,18 @@ The user asked for a 10-line explanation of BFF_SCH_ActivityCalendarService, and
 - EquipmentAvailabilityWrapper.isAssigned is declared but never set. Do not rely on it.
 
 **Touched:** force-app/main/default/classes/BFF_SCH_ActivityCalendarService.cls, BFF_SCH_ShiftRecurrenceUtil (isWindowFullyCovered, toEasternDate), BFF_SCH_ActivityCalendarHandler, lwc/bffSchActivityCalendarModal"
+Sunny Kumar Agarwal,2026-10-23T07:27:46.229Z,"**Why bffSchActivityCalendar calls Apex imperatively instead of with @wire, plus a missing-parameter bug found**
+
+The user asked why the bffSchActivityCalendar LWC calls Apex imperatively rather than with @wire. Each of its six Apex calls was checked against its @AuraEnabled annotation. Using imperative calls is a sound choice here: the data feeds the third-party FullCalendar library rather than the LWC template, calls are triggered by FullCalendar callbacks and user drag/resize actions, and several calls must run in a fixed order. No code was changed. One bug was found: the JS never passes serviceAppointmentId to getAvailableAlternatives.
+
+**Decisions**
+- Keep the Apex calls in bffSchActivityCalendar imperative. Do not convert them to @wire.
+- rescheduleAppointment must stay imperative because it writes data, and @wire only accepts cacheable=true methods, which cannot write data.
+- checkResourceAvailability, getAvailableAlternatives and getAppAndShiftForSelectedDateForGivenResource are not cacheable. They must return live data, run in response to FullCalendar callbacks (datesSet, eventDrop, eventResize), and getAvailableAlternatives runs once per conflict in order (Room → Staff → Vehicle). A wire cannot do any of that. With a wire, refreshing after a reschedule would also need refreshApex.
+- getCalendarsAllMetadata and getLicenseKey are cacheable=true and could technically be wired. They stay imperative because initializeComponent needs a strict order: metadata, then the FullCalendar files, then the license key, then the calendar constructor. They still get client-side caching because they are cacheable.
+
+**Open issues**
+- Bug, not fixed: in Apex, getAvailableAlternatives takes serviceAppointmentId as its first parameter (BFF_SCH_ActivityCalendarHandler.cls line ~603). bffSchActivityCalendar.js (line ~662) never passes it, so it arrives as null. If the method uses it, for example to leave the appointment being moved out of the busy-resource check, the alternatives returned may be wrong. Check whether bffSchActivityCalendarV7 has the same gap.
+- bffSchActivityCalendar.js seems to duplicate the legacy bffSchActivityCalendarV7 reschedule flow, including its silent failures: a reschedule or availability-check error only logs to the console and reverts the drag, with no toast. Fixes may be needed in both components.
+
+**Touched:** force-app/main/default/lwc/bffSchActivityCalendar/bffSchActivityCalendar.js, force-app/main/default/classes/BFF_SCH_ActivityCalendarHandler.cls (getCalendarsAllMetadata, getAppAndShiftForSelectedDateForGivenResource, checkResourceAvailability, getAvailableAlternatives, rescheduleAppointment), force-app/main/default/classes/BFF_SCH_FullCalendarController.cls (getLicenseKey)"
