@@ -134,3 +134,16 @@ The user asked for a 10-line explanation of bffSchActivityCalendarModal. The tem
 - The component is very large and holds a lot of state. There are separate sets for original, added, removed and unavailable resources, and several pending-primary fields, so changes here are easy to get wrong.
 
 **Touched:** force-app/main/default/lwc/bffSchActivityCalendarModal (js, html, css), BFF_SCH_ActivityCalendarHandler (checkTimeConflict, validateResourcesForUpdate, getAppointmentDetails), BFF_SCH_ActivityCalendarService, BFF_SCH_ActivityCalendarHelper, BFF_SCH_FullCalendarController, BFF_SCH_AttendeeAvailabilityService, BFF_SCH_LocationCapacityService, BFF_SCH_ResourceRequirementService, BFF_SCH_ActivityCancelController, BFF_SCH_AppointmentSaveService, lwc/bffSchApplyDiscountModal, lwc/bffSchCancelAppointmentModal"
+Sunny Kumar Agarwal,2026-10-23T06:43:09.260Z,"**Read-only review of the meetingConfiguration LWC (Google connect and meeting selection screen)**
+
+The user asked for a 5-line description of the meetingConfiguration LWC. The component is a two-step screen. Step 1 connects the user's Google account through OAuth. Step 2 lists the user's Google Calendar meetings grouped by title, lets them mark meetings Active (with a date range of up to 3 months for 'Frequent' ones) and saves them as Meeting_Configuration__c through GoogleCalendarService.syncMeetingsToDb. No code was changed. One bug was found during the read, and a few other risks were noted from the code.
+
+**Open issues**
+- Bug, not fixed: in handleSave's catch (meetingConfiguration.js line ~464), the error object is passed as the toast variant instead of 'error', so save failures don't show as a red error toast.
+- groupMeetings groups events by title (summary) only. Unrelated meetings with the same title merge into one row, and only the first instance's id is stored or selected. Recurring meetings are detected by count (more than one event with that title), not by Google's recurringEventId.
+- handleSelectAll changes every grouped meeting, not just the ones the search filter shows, even though the doc comment says 'filtered'. Select-all with a search active also selects hidden meetings.
+- Validation gaps in getMeetingValidationError: non-Frequent meetings are never validated, and a Frequent meeting with a blank end date passes, because comparisons with an invalid Date always return false.
+- The Gemini AI permission checkbox is enforced only in the client (handleSave). Nothing on the server records or enforces it.
+- handleOAuthCallback reads ?code= from the page URL. This only works if the OAuth redirect lands on the page that hosts this LWC. See the earlier handoff about the separate GoogleOAuthCallback VF page and the proposed move to Named Credentials.
+
+**Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, css, js-meta.xml), GoogleAuth (getAuthUrl, isUserAuthenticated, requestAccessToken, getAuthenticatedEmail, logoutUser), GoogleCalendarService (getMyMeetings, syncMeetingsToDb), Meeting_Configuration__c, staticresource GoogleIcon"
