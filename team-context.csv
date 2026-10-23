@@ -77,3 +77,23 @@ The user asked which org the project is built on. The default target alias kapil
 - The project logs in through login.salesforce.com, so deploys go to a production or Developer Edition org, not a sandbox. Keep that in mind because the code has no Apex test classes and is missing MeetingTaskHelper (see earlier handoffs).
 
 **Touched:** .sf/config.json, .sfdx/sfdx-config.json, sfdx-project.json, .sf/orgs/00Dg5000005rrsvEAA/metadata-catalog, .sf/orgs/00DKd00000G86nGMAR/metadata-catalog"
+Sunny Agarwal,2026-10-23T05:33:55.654Z,"**Wrote the missing MeetingTaskHelper class and the first Apex test classes for Auto Task via Google Meeting**
+
+All 5 objects (4 custom objects plus Google_Token__mdt) were already in the repo, so no objects were created. The real deploy blocker was the missing MeetingTaskHelper class. Claude wrote that class from scratch and added test classes for every Apex class, plus a shared HttpCalloutMock (GoogleHttpCalloutMock). None of this has been compiled, deployed or run against any org. The next step is a check-only validation: sf project deploy validate --source-dir force-app --target-org kapil_GoogleOrg --test-level RunLocalTests.
+
+**Decisions**
+- MeetingTaskHelper.getAssigneeIdByNameMatch matches the user's first name only, because MeetingTaskBatch queries only FirstName. Meeting attendees are checked first; if several are named, the one mentioned earliest wins, since Gemini puts the owner first (e.g. '[Name] do X'). If no attendee matches, it falls back to all active users, but only accepts a first name exactly one active user has. Matches are whole-word and ignore case ('Ann' does not match 'Annual'). If nothing matches safely it returns null and the task is created unassigned rather than given to the wrong person.
+- Tests create no users and run as the current user, changing only the Google_* fields on that user. Reason: managed-package (FSSK) validation rules on User could block inserting test users.
+- The GoogleAuth tests read the real Google_Token__mdt record, because Apex tests cannot create custom metadata records.
+- The queueable tests call MeetingNotesQueueable.execute(null) directly instead of enqueueing it. Test.setCreatedDate fixes the order of configurations, so each chain is only one level deep. This avoids Salesforce's ban on chaining queueable jobs in tests.
+- Tests do not assert on Meeting_Log__c rows from the queueable's early-return paths (see open issues), so the tests do not treat that bug as correct behaviour.
+
+**Open issues**
+- Nothing is compiled or run yet. Run the check-only validation, and first confirm the kapil_GoogleOrg alias is the intended org (a second org, 00Dg5000005rrsvEAA, is in the local CLI cache).
+- MeetingTaskHelper was written from scratch. If a version already exists in the org, deploying will overwrite it. Retrieve it first (sf project retrieve start -m ApexClass:MeetingTaskHelper) and compare.
+- Bug, wider than the earlier handoff recorded: MeetingNotesQueueable returns before `insert logs` in four cases (start date blank, past end date, blank token, and a Drive error that returns no notes), so those Meeting_Log__c records are never saved. Suggested fix: move `insert logs` into a finally block. Not fixed yet.
+- The GoogleAuth and GoogleOAuthCallbackController tests need the Google_Token__mdt record deployed with a non-null Client_Id__c and Client_Secret__c, or they fail.
+- GoogleGeminiServiceTest approves a task, which triggers the real Meeting_Task_After_Save_Flow (it creates a standard Task owned by the assignee). If that flow is broken in the org, this test fails.
+- Assignee matching uses first names only, so users with the same first name, or steps that don't name anyone, produce unassigned tasks. Matching on full names would need MeetingTaskBatch to query LastName/Name too.
+
+**Touched:** force-app/main/default/classes/MeetingTaskHelper.cls, MeetingTaskHelperTest.cls, GoogleHttpCalloutMock.cls, GoogleAuthTest.cls, GoogleOAuthCallbackControllerTest.cls, GoogleCalendarServiceTest.cls, GoogleGeminiServiceTest.cls, MeetingTaskBatchTest.cls, MeetingNotesQueueableTest.cls, MeetingNotesSchedulerTest.cls (each with its -meta.xml, API 66.0), MeetingTaskBatch.cls (calls the helper), MeetingNotesQueueable.cls (bug), customMetadata/Google_Token.Google_Token.md-meta.xml, flows/Meeting_Task_After_Save_Flow.flow-meta.xml"
