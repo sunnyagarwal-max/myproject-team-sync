@@ -247,3 +247,17 @@ The user asked for a full explanation of bffSchResourceConflictModal and whether
 - Token cost: .claude/team-context.md is loaded into every request through CLAUDE.md, so each synced handoff makes every message more expensive (about 65k tokens of context in this short chat). Consider trimming or archiving older handoffs.
 
 **Touched:** force-app/main/default/lwc/bffSchResourceConflictModal (js, html, js-meta.xml), lwc/bffSchFullCalendarV7 (js lines ~1806-1889, html line 31), lwc/bffSchActivityCalendar (js lines ~651-719, html line 41), lwc/bffSchActivityCalendarV7 (html line 41), .claude/team-context.md"
+Sunny Kumar Agarwal,2026-10-23T07:21:46.404Z,"**Why the meetingConfiguration LWC calls Apex imperatively instead of with @wire, plus a stale-cache risk on its auth checks**
+
+The user asked why meetingConfiguration calls Apex imperatively rather than with @wire. Each of its seven Apex methods was checked against its @AuraEnabled annotation and its body. Imperative calls are the right choice here. Most of the methods write data, so they cannot be cacheable, and @wire only accepts cacheable methods. The flow also has to run in a fixed order. No code was changed.
+
+**Decisions**
+- Keep the Apex calls in meetingConfiguration imperative. Do not convert them to @wire.
+- requestAccessToken, logoutUser and syncMeetingsToDb write data, so they cannot be cacheable=true and cannot be wired.
+- GoogleCalendarService.getMyMeetings looks like a read-only call, but it cannot be cacheable either. When the Google token has expired it refreshes it and runs `update new User(...)` (GoogleCalendarService.cls lines ~108-113), and it makes a live Google callout whose results should not be cached.
+- The flow must run in a fixed order: connectedCallback exchanges any OAuth ?code=, then checks isUserAuthenticated, and only then do goToStep2 and loadUserEmail/loadMeetings run. The remaining calls are triggered by button clicks or filter changes. A wire fires on its own and would race with the OAuth code exchange.
+
+**Open issues**
+- Possible stale-auth bug, not fixed: GoogleAuth.isUserAuthenticated and getAuthenticatedEmail are @AuraEnabled(cacheable=true), so even imperative calls can be answered from the browser's cache. After a logout or a reconnect, the screen may briefly show the old login status or the previous account's email. Suggested fix: make both methods non-cacheable, because auth state changes. If they stay cacheable, call refreshApex or notifyRecordUpdateAvailable after login and logout.
+
+**Touched:** force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js, force-app/main/default/classes/GoogleAuth.cls (getAuthUrl, requestAccessToken, isUserAuthenticated, getAuthenticatedEmail, logoutUser), force-app/main/default/classes/GoogleCalendarService.cls (getMyMeetings, syncMeetingsToDb)"
