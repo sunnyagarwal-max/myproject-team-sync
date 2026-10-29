@@ -276,3 +276,14 @@ The user asked for a Service Appointment with guest Bruce Wayne, resource Lakshy
 - Test appointments created with a plain insert lack the attendee and charge records that the calendar UI expects, so they may display or behave differently from real bookings.
 
 **Touched:** ServiceAppointment 08pU7000006VpxFIAS (sandbox data), WorkType 'Work Type - Test01' 08qU7000001FAbBIAW, ServiceResource Lakshya Chandwani 0HnU7000000fle5KAA, Account/Contact Bruce Wayne 001U700000ZoP40IAF / 003U7000017lXTrIAM, AssignedResource validation (shift-at-property check), force-app/main/default/classes/BFF_SCH_AppointmentSaveService.cls"
+Sunny Kumar Agarwal,2026-10-29T15:13:09.235Z,"**Fixed the Claude Team Sync VS Code extension failing to activate ('Cannot find module out/extension.js')**
+
+While testing the Claude Team Sync extension (AyuSharma-dev.claude-team-sync) from the downloaded source zip, activation failed because out/extension.js did not exist. The zip only contains the TypeScript source in src/: there is no prebuilt out/ folder and no node_modules, and package.json's ""main"" points at ./out/extension.js. Running npm install and then npm run compile in the extension folder built out/ with no compile errors. Nobody has yet confirmed in VS Code that the extension now activates.
+
+**Open issues**
+- Gotcha for anyone installing the extension from the GitHub zip: run npm install and npm run compile in the extension folder first, or activation fails with 'Cannot find module ...out/extension.js'. Pressing F5 also fails until npm install has run, because launch.json's preLaunchTask needs the TypeScript compiler from node_modules.
+- During npm install, npm did not run the install scripts for keytar and @vscode/vsce-sign because they are not in allowScripts. Running or debugging the extension doesn't need them, but npm run package (vsce) may fail until they are approved with npm approve-scripts.
+- npm install reported audit vulnerabilities, which have not been reviewed.
+- Suggest that the extension repo either ship a built .vsix or add the build steps to its README.
+
+**Touched:** Claude-Team-Sync-main/package.json (main: ./out/extension.js, compile script), Claude-Team-Sync-main/tsconfig.json (outDir out, rootDir src), Claude-Team-Sync-main/.vscode/launch.json (preLaunchTask npm: compile), Claude-Team-Sync-main/out/ (generated)"
