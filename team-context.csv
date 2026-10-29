@@ -261,3 +261,18 @@ The user asked why meetingConfiguration calls Apex imperatively rather than with
 - Possible stale-auth bug, not fixed: GoogleAuth.isUserAuthenticated and getAuthenticatedEmail are @AuraEnabled(cacheable=true), so even imperative calls can be answered from the browser's cache. After a logout or a reconnect, the screen may briefly show the old login status or the previous account's email. Suggested fix: make both methods non-cacheable, because auth state changes. If they stay cacheable, call refreshApex or notifyRecordUpdateAvailable after login and logout.
 
 **Touched:** force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js, force-app/main/default/classes/GoogleAuth.cls (getAuthUrl, requestAccessToken, isUserAuthenticated, getAuthenticatedEmail, logoutUser), force-app/main/default/classes/GoogleCalendarService.cls (getMyMeetings, syncMeetingsToDb)"
+Sunny Kumar Agarwal,2026-10-29T06:52:03.800Z,"**Test Service Appointment created in the BlackBerry_org sandbox (resource assignment blocked by shift validation), plus a correction to which org is the default**
+
+The user asked for a Service Appointment with guest Bruce Wayne, resource Lakshya Chandwani and work type Test01. Claude can't click through the browser, so it opened the org in a new Chrome window and created the record with a plain sf data create insert, which the user chose. ServiceAppointment 08pU7000006VpxFIAS was created for 30 Oct 2026, 10:00–11:00 AM IST, Status Scheduled, at property Blackberry Farm. Creating the AssignedResource for Lakshya failed on a custom validation, so the appointment currently has no resource. The user then asked for a screenshot of the Home tab, rejected the headless-Chrome approach, and gave no alternative.
+
+**Decisions**
+- The user chose a plain insert (ServiceAppointment + AssignedResource through sf data create) over calling BFF_SCH_AppointmentSaveService. As a result the record has no ServiceAppointmentAttendee, no BFF_SCH_Activity_Charge__c rows and no guest prices, service charge or tax fields, and the scheduler's availability checks were skipped. ParentRecordId (person account), ContactId (PersonContactId), WorkTypeId, Property__c (copied from WorkType) and the time fields were set by hand.
+
+**Open issues**
+- The default org in this folder is now alias BlackBerry_org (sandbox blackberryhotel--partoct25, org ID 00DU7000009TA5FMAW, user lakshya.chandwani@thundersf.com.bf.partoct25). It is NOT kapil_GoogleOrg as an earlier handoff said. Check the target before deploying or running data commands.
+- ServiceAppointment 08pU7000006VpxFIAS has no resource assigned. It is unresolved: move it into Lakshya's Blackberry Farm shift and assign Lakshya, add a Farm shift that covers 30 Oct 10:00 IST, or delete the record. The user hasn't chosen yet.
+- Gotcha: an AssignedResource insert is blocked by a custom validation ('resources are not scheduled to work at that property on the selected date') when the resource has no shift at the work type's Property__c. Lakshya's Blackberry Farm shift ends 2026-10-30 03:00 UTC (08:30 IST). The Blackberry Mountain shift runs to 31 Oct.
+- Shift has no Property__c field. The property comes from ServiceTerritory.Name.
+- Test appointments created with a plain insert lack the attendee and charge records that the calendar UI expects, so they may display or behave differently from real bookings.
+
+**Touched:** ServiceAppointment 08pU7000006VpxFIAS (sandbox data), WorkType 'Work Type - Test01' 08qU7000001FAbBIAW, ServiceResource Lakshya Chandwani 0HnU7000000fle5KAA, Account/Contact Bruce Wayne 001U700000ZoP40IAF / 003U7000017lXTrIAM, AssignedResource validation (shift-at-property check), force-app/main/default/classes/BFF_SCH_AppointmentSaveService.cls"
