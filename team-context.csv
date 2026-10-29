@@ -307,3 +307,25 @@ This session re-checked two earlier handoffs against the current code: the meeti
 - Earlier meetingConfiguration issues still open: the error object passed as the toast variant (js line 464), cacheable=true on the auth methods, select-all ignoring the search filter, a blank end date passing validation, and grouping by title only.
 
 **Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, js-meta.xml), force-app/main/default/classes/GoogleCalendarService.cls (syncMeetingsToDb), force-app/main/default/classes/GoogleAuth.cls (isUserAuthenticated, getAuthenticatedEmail), Meeting_Configuration__c.Google_Meeting_Id__c, force-app/main/default/classes/MeetingTaskHelper.cls, force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, .sf/config.json"
+Sunny Kumar Agarwal,2026-10-29T16:03:02.458Z,"**meetingConfiguration LWC re-reviewed: imperative vs @wire confirmed, plus new security and config findings**
+
+The user asked for a review of meetingConfiguration covering imperative vs @wire and any other configuration that could be improved, with no code changes. The earlier decision to keep all Apex calls imperative still holds. The review found new issues in the OAuth/token handling, error handling, js-meta.xml and LWC code quality. It also confirmed that every open issue from the 10-23 and 10-29 meetingConfiguration handoffs is still in the code. No code was changed and nothing was deployed.
+
+**Decisions**
+- Keep every meetingConfiguration Apex call imperative and do not add @wire. This re-confirms the 10-23 decision: requestAccessToken, logoutUser and syncMeetingsToDb write data, getMyMeetings makes a callout and can update User, and a wire would race with the ?code= exchange in connectedCallback.
+- Recommended removing cacheable=true from GoogleAuth.isUserAuthenticated and getAuthenticatedEmail rather than wiring them, because auth state changes and cached results can show a stale login status or email after logout or reconnect. Optional: merge them into one non-cacheable getAuthState() returning {isAuthenticated, email}.
+- Suggested order: (1) make the auth methods non-cacheable and fix the toast-variant and spinner bugs, (2) clean up js-meta.xml, @track and if:true, (3) treat the Named Credential/External Credential move as a separate design decision.
+
+**Open issues**
+- Security: Google access and refresh tokens are stored in plain User fields that anyone with field access can read. Consider a Named Credential plus an External Credential with per-user principals.
+- The OAuth URL has no state parameter, so the callback is not protected against CSRF.
+- logoutUser only clears the User fields and never revokes the Google grant (https://oauth2.googleapis.com/revoke).
+- redirectUri points to /apex/GoogleOAuthCallback. The LWC's handleOAuthCallback (?code=) only runs if that VF page sends the user back to the LWC page with the code. Confirm which one actually exchanges the code; the LWC path may be dead code.
+- The token refresh logic exists twice: GoogleAuth.refreshAndSaveToken and GoogleCalendarService.getValidTokenResponse. The second passes a blank refresh token to urlEncode(null) and throws an unclear error.
+- syncMeetingsToDb doesn't check field-level security or object permissions (with sharing only covers record sharing). Use upsert as user or Security.stripInaccessible.
+- getMyMeetings catches its own AuraHandledException and re-wraps it with e.getMessage(), which is 'Script-thrown exception', so the real error is lost. The LWC also ignores error.body.message and shows a generic toast.
+- js-meta.xml: lightning__RecordPage is exposed although the component doesn't use recordId. masterLabel is the camelCase API name and there is no description.
+- LWC code quality: @track is used on every field but none need it. if:true/if:false should become lwc:if. showFuture is always reset to true, so includeFuture is effectively unused. loadMeetings has no guard against out-of-order responses when 'Show past' is toggled quickly. The Logout control is a clickable span that the keyboard can't reach. Clean up the inline style, the console.log calls and the System.debug calls that print attendee emails.
+- Still unfixed from the earlier handoffs: the error object is passed as the toast variant (js line 464), and the spinner hides before the reload after a save finishes (line 460). The remaining issues in the 10-23 and 10-29 meetingConfiguration handoffs are also still present.
+
+**Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, js-meta.xml), force-app/main/default/classes/GoogleAuth.cls (getAuthUrl, isUserAuthenticated, getAuthenticatedEmail, logoutUser, refreshAndSaveToken, redirectUri), force-app/main/default/classes/GoogleCalendarService.cls (getMyMeetings, getValidTokenResponse, syncMeetingsToDb), User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c"
