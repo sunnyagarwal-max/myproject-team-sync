@@ -287,3 +287,23 @@ While testing the Claude Team Sync extension (AyuSharma-dev.claude-team-sync) fr
 - Suggest that the extension repo either ship a built .vsix or add the build steps to its README.
 
 **Touched:** Claude-Team-Sync-main/package.json (main: ./out/extension.js, compile script), Claude-Team-Sync-main/tsconfig.json (outDir out, rootDir src), Claude-Team-Sync-main/.vscode/launch.json (preLaunchTask npm: compile), Claude-Team-Sync-main/out/ (generated)"
+Sunny Kumar Agarwal,2026-10-29T15:37:35.857Z,"**Re-checked the meetingConfiguration LWC and MeetingTaskHelper/test-class handoffs against current code: new bugs, plus org-alias corrections**
+
+This session re-checked two earlier handoffs against the current code: the meetingConfiguration LWC review and the MeetingTaskHelper plus Apex tests work. Every open issue from both handoffs is still present, and the check found several new bugs, listed below. No code was changed, and no deploy or validation was run against any org. The suggested check-only validation (sf project deploy validate --target-org kapil_GoogleOrg --test-level RunLocalTests) is still pending.
+
+**Open issues**
+- Org correction: the default org is kapil_GoogleOrg again (00DKd00000G86nGMAR, isDefaultUsername True in sf org list as of 2026-10-29). The 10-29 handoff that says the default is BlackBerry_org is out of date. Check the target before running any command.
+- The 'unknown second org' 00Dg5000005rrsvEAA from the 10-23 handoffs is alias WMC_GoogleOrg (hg-real-tasks@appsavio.com).
+- syncMeetingsToDb upserts on Google_Meeting_Id__c, an external ID that is unique=false, and the class runs with sharing. When two users configure the same Google meeting, a save can overwrite the other user's record if it is visible to them, or insert a duplicate if it isn't. A later save that sees both records then fails with a duplicate external ID error. Consider matching on a key that combines owner and meeting.
+- meetingConfiguration: todayDate uses toISOString() (UTC), so in IST the default start date is yesterday before 05:30.
+- meetingConfiguration: connectedCallback runs handleOAuthCallback and checkAuthStatus at the same time. On a redirect back from Google with a cached auth flag, goToStep2 can run twice, loading meetings and the email twice.
+- meetingConfiguration: handleSave's .then returns loadMeetings(), which returns no promise, so .finally hides the spinner while the reload is still running.
+- meetingConfiguration: the date inputs show for any recurring group (isRecurring) even when it isn't selected. The computed showDateRange is never used, and neither are statusLabel, actionLabel, statusClass, isMeetingValid or seriesId (so Google's recurringEventId is fetched but ignored). Clearing the end date never clears it in the database, because Apex skips blank dates.
+- MeetingTaskBatch: allActiveUsers uses LIMIT 1000, so the helper's 'first name held by only one user' check can be wrong in orgs with more than 1,000 users and assign a task to the wrong person.
+- MeetingTaskBatch: the attendee map is built from all notes in the scope (batch size 5), so the 'attendees first' rule can pick an attendee of a different meeting.
+- MeetingTaskHelper: unlike the fallback, the attendee check doesn't guard against two attendees with the same first name. Whichever comes first in the map wins.
+- MeetingTaskBatch also loses logs: when getting the token fails, it returns before insert errorLogs (line ~111). This is the same pattern as the 4 early returns in MeetingNotesQueueable, which are still unfixed. The blank-token return there also still skips moveToNext.
+- Both classes use Test.isRunningTest() ? 'dummy' : GoogleAuth.getValidAccessToken(), so tests can never reach the blank-token or token-failure branches or cover getValidAccessToken through these paths.
+- Earlier meetingConfiguration issues still open: the error object passed as the toast variant (js line 464), cacheable=true on the auth methods, select-all ignoring the search filter, a blank end date passing validation, and grouping by title only.
+
+**Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, js-meta.xml), force-app/main/default/classes/GoogleCalendarService.cls (syncMeetingsToDb), force-app/main/default/classes/GoogleAuth.cls (isUserAuthenticated, getAuthenticatedEmail), Meeting_Configuration__c.Google_Meeting_Id__c, force-app/main/default/classes/MeetingTaskHelper.cls, force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, .sf/config.json"
