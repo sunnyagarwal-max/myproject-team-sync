@@ -356,3 +356,19 @@ The user asked what the meetingConfiguration LWC is for, what the 10-29 re-revie
 - The 10-29 meetingConfiguration fixes are still pending. The suggested first step is to make the auth methods non-cacheable and fix the toast variant and the spinner in handleSave. The user hasn't approved the change yet.
 
 **Touched:** force-app/main/default/classes/GoogleAuth.cls (SCOPE line 11-13, isUserAuthenticated line 164, getAuthenticatedEmail line 183), force-app/main/default/classes/GoogleGeminiService.cls, force-app/main/default/classes/MeetingNotesQueueable.cls (Drive files search), force-app/main/default/classes/MeetingTaskBatch.cls (Drive file read), force-app/main/default/classes/GoogleCalendarService.cls, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js (handleSave lines 454-469), customMetadata Google_Token__mdt, User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c"
+Sunny Kumar Agarwal,2026-11-03T06:10:16.268Z,"**Auto Task via Google Meeting: build-vs-buy re-check found no existing product that turns Gemini Meet notes into Salesforce Tasks; publishing-cost estimate restated**
+
+The user asked again about build vs buy and about the cost of publishing Auto Task via Google Meeting commercially. The cost answer restated the 11-03 handoff without new research: about $1.5k-5.5k in fees in year 1, with the AppExchange and CASA security fixes as the main cost. New web searches (not a search inside AppExchange) found no product that turns Google Meet's 'Notes by Gemini' docs into Salesforce Tasks, which partly closes the 11-03 gap. They did find two Google products close to this space that could become competitors. No code was changed and nothing was deployed.
+
+**Decisions**
+- The 11-03 recommendation still stands: keep building in-house for internal use. For a commercial listing, position the app as bot-free, using Workspace's existing Gemini notes, with review before tasks are created. The searches found no direct competitor that builds on Gemini notes.
+- Main competitive risk: Google is adding direct Salesforce write paths. The 'Gemini Enterprise - Salesforce Connector' (a managed package on AppExchange, needs a Gemini Enterprise licence) can create, update and delete Salesforce records from Gemini Enterprise, but Meet notes aren't listed as a source. The Workspace Marketplace 'Salesforce integration' add-on (early access / Gemini Alpha only) creates leads, contacts and cases from Gemini commands, but not tasks. If either adds Meet action items to Tasks, the app's main advantage goes away.
+- By default, Gemini 'Take notes for me' output stays in Google Workspace: a Doc with a 'Next steps' section and no CRM push. That gap is what this app fills.
+
+**Open issues**
+- AppExchange itself still hasn't been searched for listings based on Gemini or Meet notes. Only web searches were done, mostly against vendor blogs. Do this before committing to a commercial listing.
+- Track the Gemini Enterprise Salesforce connector and the Workspace Salesforce integration add-on. Either one could make the product redundant.
+- Offered but not done: an engineering-effort estimate for the security-review fixes, and a check of whether a narrower Docs scope (finding the notes doc through the Calendar event attachment) would avoid the yearly CASA assessment.
+- All 11-03 open issues still stand, including the security-review blockers, packaging work not started, and pending meetingConfiguration fixes.
+
+**Touched:** force-app/main/default/classes/GoogleAuth.cls (SCOPE: drive.readonly restricted scope drives CASA cost), customMetadata Google_Token__mdt, User.Google_Access_Token__c, User.Google_Refresh_Token__c"
