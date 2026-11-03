@@ -329,3 +329,30 @@ The user asked for a review of meetingConfiguration covering imperative vs @wire
 - Still unfixed from the earlier handoffs: the error object is passed as the toast variant (js line 464), and the spinner hides before the reload after a save finishes (line 460). The remaining issues in the 10-23 and 10-29 meetingConfiguration handoffs are also still present.
 
 **Touched:** force-app/main/default/lwc/meetingConfiguration (js, html, js-meta.xml), force-app/main/default/classes/GoogleAuth.cls (getAuthUrl, isUserAuthenticated, getAuthenticatedEmail, logoutUser, refreshAndSaveToken, redirectUri), force-app/main/default/classes/GoogleCalendarService.cls (getMyMeetings, getValidTokenResponse, syncMeetingsToDb), User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c"
+Sunny Kumar Agarwal,2026-11-03T05:59:20.070Z,"**Auto Task via Google Meeting: commercial publishing cost and build-vs-buy analysis, plus findings on how the app actually uses Gemini and Google scopes**
+
+The user asked what the meetingConfiguration LWC is for, what the 10-29 re-review handoff means, how much it would cost to publish Auto Task via Google Meeting as a commercial product, and whether an off-the-shelf alternative exists. A check of the current code (2026-11-03) shows the 10-29 findings are still unfixed: GoogleAuth.isUserAuthenticated and getAuthenticatedEmail are still cacheable=true, and handleSave still passes the error object as the toast variant (meetingConfiguration.js line 464) and returns loadMeetings() without a promise. The code never calls the Gemini API. It reads the 'Notes by Gemini' Docs that Google Meet saves to Drive. Required publishing fees are small (about $1.5k-5.5k in year 1). The main cost is the security fixes needed to pass the AppExchange security review and Google's CASA assessment. No code was changed and nothing was deployed.
+
+**Decisions**
+- The publishing cost estimate is based on these scope findings: calendar.readonly is a sensitive scope (Google verification only, free). drive.readonly (GoogleAuth.cls line 13) is a RESTRICTED scope, so it needs a Google CASA security assessment (about $500-4,500, every 12 months). Both scopes were confirmed in GoogleAuth.SCOPE.
+- AppExchange: joining the ISV partner program is free. The security review costs about $999 per attempt for a paid app (no fee for a free app, which must still pass). The ISVforce revenue share is about 15%. These figures come from 2026 third-party guides and should be confirmed in the Partner Security Portal before budgeting.
+- The app has no Gemini API or token cost. GoogleGeminiService only runs SOQL on Meeting_Note__c, and the Drive calls are in MeetingNotesQueueable and MeetingTaskBatch. The real dependency is that every customer needs a Google Workspace plan that includes Gemini note-taking in Meet. That should go in the listing's requirements.
+- Build vs buy recommendation: for internal use, keep the in-house build. It's nearly done, has no per-seat cost and needs no meeting bot. Consider Fathom or Fireflies, which can create Salesforce Tasks from Meet, only if Zoom or Teams coverage or more reliable assignment is needed. If it's sold commercially, position it as 'bot-free, uses existing Gemini notes, review before Salesforce tasks are created' for Workspace + Salesforce customers whose policies block recording bots. Competing feature-for-feature with the $10-30/user notetakers is not recommended.
+- Fix the known security issues before the first paid security-review submission, so the $999 fee isn't paid more than once.
+
+**Open issues**
+- Likely blockers for the AppExchange security review:
+  - OAuth tokens are stored in plain User fields. Move them to a Named Credential plus an External Credential with per-user principals.
+  - The OAuth URL has no state parameter, so the callback isn't protected against CSRF.
+  - DML has no field-level security or object permission checks: syncMeetingsToDb and the batch/queueable classes.
+  - System.debug calls print attendee emails.
+  - Logout doesn't revoke the Google grant.
+- In a managed package, the client ID and secret in Google_Token__mdt must be protected custom metadata or move into the Named Credential.
+- Packaging work not started: Partner Business Org and Dev Hub, a namespace, a managed 2GP package, Remote Site Settings or Named Credentials for the Google endpoints, and 75%+ coverage (the test classes are still not validated against any org).
+- Option not yet investigated: dropping drive.readonly would remove CASA entirely. drive.file won't work, because it can't see the notes docs Meet creates. An alternative would be to locate the notes doc from the Calendar event's attachment and read it with a narrower Docs scope. Google's classification of that scope hasn't been checked.
+- Product risk: the app depends on the format and Drive location of Google's 'Notes by Gemini' doc. A change by Google would break note parsing.
+- First-name-only assignee matching is weaker than the speaker identification competitors use. See the 10-29 MeetingTaskHelper/MeetingTaskBatch issues.
+- AppExchange hasn't been searched directly for an existing listing based on Gemini notes. The searches in this session didn't find one.
+- The 10-29 meetingConfiguration fixes are still pending. The suggested first step is to make the auth methods non-cacheable and fix the toast variant and the spinner in handleSave. The user hasn't approved the change yet.
+
+**Touched:** force-app/main/default/classes/GoogleAuth.cls (SCOPE line 11-13, isUserAuthenticated line 164, getAuthenticatedEmail line 183), force-app/main/default/classes/GoogleGeminiService.cls, force-app/main/default/classes/MeetingNotesQueueable.cls (Drive files search), force-app/main/default/classes/MeetingTaskBatch.cls (Drive file read), force-app/main/default/classes/GoogleCalendarService.cls, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js (handleSave lines 454-469), customMetadata Google_Token__mdt, User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c"
