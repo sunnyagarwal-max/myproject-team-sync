@@ -372,7 +372,6 @@ The user asked again about build vs buy and about the cost of publishing Auto Ta
 - All 11-03 open issues still stand, including the security-review blockers, packaging work not started, and pending meetingConfiguration fixes.
 
 **Touched:** force-app/main/default/classes/GoogleAuth.cls (SCOPE: drive.readonly restricted scope drives CASA cost), customMetadata Google_Token__mdt, User.Google_Access_Token__c, User.Google_Refresh_Token__c"
-
 Sunny Kumar,2026-11-03T10:58:37.795Z,"**Test Project overview of Auto Task via Google Meeting (Salesforce DX), with risks found**
 
 This was a read-only review of the whole project. No code was changed. The app connects each user to Google, and a scheduled job then works through each active Meeting_Configuration__c in turn. For each one it pulls the Gemini meeting notes from Google Drive (Google Docs whose names start with '<Config Name> -'), reads the 'Suggested next steps' section and creates Meeting_Task__c records with status 'Pending Reviewed'. When a task is approved, a record-triggered flow creates a standard Task. The review found a deployment blocker and a silent-failure bug, listed under open issues.
@@ -387,7 +386,6 @@ This was a read-only review of the whole project. No code was changed. The app c
 - The project folder is not a git repository yet.
 
 **Touched:** force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingNotesScheduler.cls, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/flows/Meeting_Task_After_Save_Flow.flow-meta.xml, force-app/main/default/objects/User/fields"
-
 Sunny,2026-11-04T10:58:37.795Z,"**Testing overview, with risks found**
 
 This was a read-only review of the whole project. No code was changed. The app connects each user to Google, and a scheduled job then works through each active Meeting_Configuration__c in turn. For each one it pulls the Gemini meeting notes from Google Drive (Google Docs whose names start with '<Config Name> -'), reads the 'Suggested next steps' section and creates Meeting_Task__c records with status 'Pending Reviewed'. When a task is approved, a record-triggered flow creates a standard Task. The review found a deployment blocker and a silent-failure bug, listed under open issues.
@@ -402,3 +400,20 @@ This was a read-only review of the whole project. No code was changed. The app c
 - The project folder is not a git repository yet.
 
 **Touched:** force-app/main/default/classes/MeetingTaskBatch.cls, force-app/main/default/classes/MeetingNotesQueueable.cls, force-app/main/default/classes/MeetingNotesScheduler.cls, force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/flows/Meeting_Task_After_Save_Flow.flow-meta.xml, force-app/main/default/objects/User/fields"
+Sunny Kumar Agarwal,2026-11-04T08:57:15.806Z,"**Auto Task via Google Meeting: assessment of replacing the meetingNotes and meetingConfiguration LWCs with Flow**
+
+The user asked whether Flow could replace the project's two LWCs, meetingNotes and meetingConfiguration. The recommendation was a hybrid. Replace meetingNotes, the task review and approve screen, with a screen flow or a list view plus a flow. Keep meetingConfiguration unless Google sign-in first moves to a Named Credential with per-user External Credentials. The background Apex (scheduler, queueable, batch) should stay in Apex. No code was changed, and the user hasn't yet chosen which piece to do first.
+
+**Decisions**
+- meetingNotes can become a screen flow: a Data Table of Pending Reviewed Meeting_Task__c records, a second screen with a user Lookup and an Approve/Reject choice, then Update Records. Meeting_Task_After_Save_Flow already creates the standard Task on approval. The simpler alternative is a list view with inline editing plus a list-view button that starts a bulk-approve flow. Trade-offs: tasks are no longer grouped by configuration (Data Table can't group rows), assignee and text are edited on a second screen instead of on each row, and the filters and search are clunkier.
+- meetingConfiguration can't move to Flow as it is built now. A screen flow can't do the Google OAuth redirect and catch the ?code= callback. Flow only becomes possible after sign-in moves to a Named Credential with per-user External Credentials. Each user then connects Google once from their own Salesforce settings, and Flow's HTTP Callout action (or a small invocable Apex action, given Calendar's nested JSON) can fetch meetings.
+- Do the Named Credential/External Credential move whether or not Flow is adopted. It removes the token handling in GoogleAuth and the plain-text tokens in User fields, and clears several AppExchange security-review blockers from earlier handoffs.
+- The meeting-selection screen (a checkbox, recurring toggle and date range on each row, plus search, select-all and 'show past') maps poorly to Flow. Even after the auth change, the choice is between a slimmer LWC and a plainer flow (select meetings, then loop to set dates for each).
+- Keep MeetingNotesScheduler, MeetingNotesQueueable and MeetingTaskBatch in Apex. Reading Drive documents and parsing their text is a poor fit for Flow.
+
+**Open issues**
+- The user hasn't chosen the next step: sketch the meetingNotes replacement flow, or plan the Named Credential/External Credential move.
+- Bugs in meetingNotes.js, found but not fixed: handleBulkApprove is defined twice (around lines 425 and 714) and so is processAction (around lines 437 and 740), so the later definitions silently override the earlier ones. handleIndividualApprove shows two success toasts, one from processAction and one of its own, and the second fires even if the update fails. A Flow replacement would remove these.
+- Flow Data Table limits (grouping, inline editing of lookup fields) weren't checked against the org's current release. Confirm them before committing to the flow design.
+
+**Touched:** force-app/main/default/lwc/meetingNotes/meetingNotes.js, force-app/main/default/lwc/meetingConfiguration (html, js), force-app/main/default/classes/GoogleAuth.cls, force-app/main/default/classes/GoogleGeminiService.cls (getMeetingNotesTask, getActiveUsers, getActiveUsersWithTokens, updateMeetingTasks), force-app/main/default/pages/GoogleOAuthCallback.page, force-app/main/default/flows/Meeting_Task_After_Save_Flow.flow-meta.xml, Meeting_Task__c, User.Google_Access_Token__c, User.Google_Refresh_Token__c"
