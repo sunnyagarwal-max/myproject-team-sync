@@ -372,3 +372,5 @@ The user asked again about build vs buy and about the cost of publishing Auto Ta
 - All 11-03 open issues still stand, including the security-review blockers, packaging work not started, and pending meetingConfiguration fixes.
 
 **Touched:** force-app/main/default/classes/GoogleAuth.cls (SCOPE: drive.readonly restricted scope drives CASA cost), customMetadata Google_Token__mdt, User.Google_Access_Token__c, User.Google_Refresh_Token__c"
+
+sunny kumar, testing, testing description
