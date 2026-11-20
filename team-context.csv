@@ -13,3 +13,20 @@ Team Sync stopped adding its changes to git. The cause is that D:\Kapil_GoogleOr
 - After the repo is restored, reload VS Code and run Team Sync again to confirm it commits. Also check that the .husky hooks still work, since they depend on git.
 
 **Touched:** .git (missing), .claude/team-sync/pending.jsonl, .claude/settings.json (SessionEnd hook runs .claude/hooks/record-session.js)"
+Sunny Kumar Agarwal,2026-11-20T10:29:22.966Z,"**Assessment: switching meetingNotes / meetingConfiguration LWCs from imperative Apex calls to @wire**
+
+We assessed whether the two LWCs could move from imperative Apex calls to @wire. No code was changed. meetingNotes is a good fit and would take about half a day, including testing. meetingConfiguration should mostly stay imperative. Two unrelated bugs turned up in meetingNotes.js and are still unfixed.
+
+**Decisions**
+- meetingNotes: wire getActiveUsersWithTokens and getMeetingNotesTask. Both Apex methods need @AuraEnabled(cacheable=true) first; neither has it today. loadTaskData already builds new objects from the Apex result, so the selection and edit handlers will work with read-only wired data without deep cloning.
+- meetingNotes: keep getActiveUsers (debounced search-as-you-type) imperative. Wiring it gains little. updateMeetingTasks must stay imperative because it does DML.
+- meetingConfiguration: keep everything imperative. getMyMeetings cannot be cacheable because it updates the User record (Google_Access_Token__c, Google_Token_Expiry__c) when the token was refreshed, and that update throws in a cacheable method. Caching would also show stale calendar data. The OAuth, logout and sync methods are user actions or DML.
+- Do not wire isUserAuthenticated or getAuthenticatedEmail, even though both are already cacheable. They run inside the OAuth callback → auth check → step-2 sequence, and a cached isUserAuthenticated=true after logout would show the wrong screen.
+
+**Open issues**
+- The @wire change in meetingNotes is not implemented yet. Once getMeetingNotesTask is cacheable, imperative calls to it can also return cached data. handleRefresh and the code after approve/reject must call refreshApex(wiredResult), or the user will see stale tasks.
+- meetingNotes.js runs loadTaskData() twice on load, once from connectedCallback and once from the wiredUser handler. The first call can run before currentUserName is set, so default assignee labels show 'Assign To'. Moving the task load to @wire would fix this.
+- meetingNotes.js defines processAction twice (around lines 437 and 740) and handleBulkApprove twice (around lines 425 and 714). The later definitions silently replace the earlier ones, and the dead copies should be removed.
+- handleIndividualApprove shows a second success toast before the async save finishes, so users see 'approved' even when the save fails.
+
+**Touched:** force-app/main/default/lwc/meetingNotes/meetingNotes.js, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js, GoogleGeminiService.cls (getMeetingNotesTask, getActiveUsersWithTokens, getActiveUsers, updateMeetingTasks), GoogleCalendarService.cls (getMyMeetings), GoogleAuth.cls (isUserAuthenticated, getAuthenticatedEmail)"
