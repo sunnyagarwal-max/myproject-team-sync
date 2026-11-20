@@ -54,5 +54,23 @@ We reviewed the whole Salesforce DX project and changed no code. The app connect
 - Still open from earlier handoffs: the folder has no .git directory; meetingNotes.js has duplicate processAction and handleBulkApprove definitions, runs loadTaskData twice, and shows a success toast before the save finishes; the planned @wire change is not done.
 
 **Touched:** force-app/main/default/customMetadata/Google_Token.Google_Token.md-meta.xml, GoogleAuth.cls, GoogleCalendarService.cls, GoogleGeminiService.cls, GoogleOAuthCallbackController.cls, GoogleOAuthCallback.page, MeetingNotesQueueable.cls, MeetingTaskBatch.cls, MeetingNotesScheduler.cls, Meeting_PS.permissionset-meta.xml, Video_Meeting_PS.permissionset-meta.xml, User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c, Meeting_Task__c, Meeting_Task_After_Save_Flow, objects/User (managed-package fields)"
-
 Sunny Kumar Agarwal,2026-11-20T09:36:41.696Z,"**testing project
+"
+Sunny Kumar Agarwal,2026-11-20T10:46:20.925Z,"**Plan to cut the meetingNotes LWC from 4 Apex methods to 2**
+
+meetingNotes calls four imperative Apex methods, all in GoogleGeminiService: getActiveUsersWithTokens, getActiveUsers, getMeetingNotesTask and updateMeetingTasks. We proposed reducing them to two: one cacheable getMeetingNotesInitData() plus updateMeetingTasks. No code was changed. Implementation is waiting on the user's decision between loading users once and filtering in the browser, or keeping server-side user search.
+
+**Decisions**
+- Merge getActiveUsersWithTokens and getMeetingNotesTask into one cacheable getMeetingNotesInitData() that returns { canViewAll, filterUsers, meetingNotes }. Both already run on page load, and the merged method can be @wired, as the earlier @wire handoff planned.
+- The merged method must check for the Google token in Apex and return only Id and Name. This closes the critical token leak from the 2026-11-20 project review.
+- The merged method should use one admin check: the Meeting_Admin custom permission only, dropping the hardcoded 'System Administrator' profile check.
+- Proposed, not yet decided: remove getActiveUsers by returning active users (Id, Name, capped at around 2,000) in the init call and filtering them in JS. Today the lookup already calls getActiveUsers('') with no LIMIT and then calls Apex on every keystroke. This differs from the earlier @wire handoff, which kept getActiveUsers imperative. That choice is still right for orgs with thousands of users, which should keep getActiveUsers and add a LIMIT instead.
+- updateMeetingTasks stays separate because it does DML and cannot be cacheable or merged into a read.
+
+**Open issues**
+- Admin-check mismatch: getActiveUsersWithTokens sets canViewAll for the System Administrator profile OR Meeting_Admin, but getMeetingNotesTask checks Meeting_Admin only. A System Administrator without Meeting_Admin sees the 'All Users' filter but only their own tasks.
+- Still waiting for the user to choose between client-side user filtering and keeping getActiveUsers with a LIMIT before the change starts.
+- Fewer methods alone does not remove the extra server call on load: loadTaskData() runs twice, from connectedCallback and from the wiredUser handler. Fix this in the same change.
+- Once the init method is cacheable, handleRefresh and the code after approve/reject must call refreshApex, or users will see stale tasks.
+
+**Touched:** force-app/main/default/lwc/meetingNotes/meetingNotes.js, GoogleGeminiService.cls (getMeetingNotesTask, getActiveUsersWithTokens, getActiveUsers, updateMeetingTasks)"
