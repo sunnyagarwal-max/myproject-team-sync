@@ -1,1 +1,15 @@
+Developer Name,Date,Context
 test, sunnny, test
+Sunny Kumar Agarwal,2026-11-20T10:03:07.346Z,"**Team Sync extension stopped committing to git: project folder lost its .git directory**
+
+Team Sync stopped adding its changes to git. The cause is that D:\Kapil_GoogleOrg is no longer a git repository: there is no .git folder, and running git status fails with 'fatal: not a git repository'. Git itself is installed (2.56) and works. The extension still runs, since it wrote .claude/team-sync/pending.jsonl on 2026-11-20 at 15:30, but that file is empty and git has no repository to commit to. Nothing has been fixed yet, because restoring the repo needs the remote URL and branch name from the user.
+
+**Decisions**
+- Did not run git init automatically. A bare init would create a new history with no link to the remote, so the safer order is to restore .git from the Recycle Bin first, re-attach to the remote second (git init, git remote add origin, git fetch, git reset origin/<branch>), and re-clone last.
+
+**Open issues**
+- The repo is not restored yet. The user still needs to check the Recycle Bin or provide the remote URL and branch so the folder can be re-attached.
+- It is unknown why .git disappeared (deleted, folder copied or extracted from a ZIP, or VS Code opened on a different copy). If it was deleted, any local commits and branches that were never pushed may be lost.
+- After the repo is restored, reload VS Code and run Team Sync again to confirm it commits. Also check that the .husky hooks still work, since they depend on git.
+
+**Touched:** .git (missing), .claude/team-sync/pending.jsonl, .claude/settings.json (SessionEnd hook runs .claude/hooks/record-session.js)"
