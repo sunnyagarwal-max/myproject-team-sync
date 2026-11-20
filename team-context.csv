@@ -1,1 +1,21 @@
+Developer Name,Date,Context
+Sunny Kumar Agarwal,2026-11-20T10:50:42.508Z,"**Optimisation review of meetingConfiguration LWC (no code changed yet)**
 
+We reviewed the meetingConfiguration LWC and the GoogleAuth and GoogleCalendarService Apex methods it calls, looking for ways to optimise it. The review turned up duplicate and unnecessary calls to Google, a caching bug in the auth checks, and several correctness bugs. Changes were proposed in priority order, but none have been applied; the user hasn't yet said whether to go ahead.
+
+**Decisions**
+- Proposed priority: first cut the Google API calls (duplicate load after sign-in, the full reload when 'Show past meetings' is ticked, the reload after Save), then fix the auth caching, then reduce work done on each click and keystroke. Reason: Google calls are the biggest cost, and several of these changes also fix bugs.
+- Proposed removing cacheable=true from GoogleAuth.isUserAuthenticated rather than clearing the cache after login and logout, because it is simpler.
+
+**Open issues**
+- Bug: after the Google sign-in redirect, connectedCallback runs both handleOAuthCallback() and checkAuthStatus(). If both succeed, goToStep2() runs twice, so getAuthenticatedEmail and getMyMeetings (a Google callout) are each called twice.
+- Bug risk: GoogleAuth.isUserAuthenticated and getAuthenticatedEmail are @AuraEnabled(cacheable=true) but called imperatively. After logout or signing in with another account, the browser cache can return an old 'authenticated' result or the previous account's email.
+- Bug: handleSelectAll selects or clears every grouped meeting, not just the ones matching the current search.
+- Bug: when Save fails, showToast receives the error object as the variant instead of 'error'.
+- handleSave validates every lightning-input, including the search box and checkboxes; it should check only the date inputs.
+- Ticking 'Show past meetings' and saving both fetch all meetings from Google again.
+- Meetings are grouped by summary (title) text, not by recurringEventId. Unrelated meetings with the same title get merged, and selection and dates are stored against the first instance's id only.
+- CSS has a '//' comment at the .toggle-wrapper rule, which is invalid CSS. The :host .slds-card__body rule can't reach inside lightning-card's shadow DOM, so it does nothing.
+- Not started: replacing @track on simple fields, moving to lwc:if, debouncing search, and paging long meeting lists.
+
+**Touched:** force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.html, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.css, GoogleAuth.cls, GoogleCalendarService.cls"
