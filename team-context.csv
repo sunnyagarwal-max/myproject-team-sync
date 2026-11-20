@@ -30,3 +30,27 @@ We assessed whether the two LWCs could move from imperative Apex calls to @wire.
 - handleIndividualApprove shows a second success toast before the async save finishes, so users see 'approved' even when the save fails.
 
 **Touched:** force-app/main/default/lwc/meetingNotes/meetingNotes.js, force-app/main/default/lwc/meetingConfiguration/meetingConfiguration.js, GoogleGeminiService.cls (getMeetingNotesTask, getActiveUsersWithTokens, getActiveUsers, updateMeetingTasks), GoogleCalendarService.cls (getMyMeetings), GoogleAuth.cls (isUserAuthenticated, getAuthenticatedEmail)"
+Sunny Kumar Agarwal,2026-11-20T10:36:41.696Z,"**Project review of the Google Meeting → Meeting Task app: security and async-job risks found**
+
+We reviewed the whole Salesforce DX project and changed no code. The app connects users to Google with OAuth and stores their tokens on the User record. A nightly scheduler → queueable → batch chain finds Gemini meeting-note Google Docs in Drive, pulls the 'Suggested next steps' lines out as Meeting_Task__c records, and creates a standard Task when one is approved. We found several critical security problems and a likely production failure in the scheduled job. None of these is fixed yet. The open issues from the earlier meetingNotes @wire handoff and the missing .git directory are still unresolved.
+
+**Decisions**
+- Suggested fix order: (1) rotate the Google client secret and stop returning tokens from getActiveUsersWithTokens; (2) remove field permissions on the User token fields and add an OAuth state check; (3) fix token refresh in the async jobs and use each config owner's token; (4) restore git, then clean up.
+- The async jobs should reuse the in-memory refresh pattern from GoogleCalendarService.getValidTokenResponse (callout first, User DML only after all callouts), not GoogleAuth.getValidAccessToken. The token-refresh code is duplicated in both classes and should live in one place.
+- Longer term, move the client secret and per-user tokens to Named Credentials / External Credentials (per-user principal) instead of custom metadata and User long-text fields.
+
+**Open issues**
+- CRITICAL: the Google OAuth client secret is committed in plain text in the Google_Token custom metadata record (protected=false). It must be rotated in Google Cloud Console and removed from source.
+- CRITICAL: GoogleGeminiService.getActiveUsersWithTokens selects Google_Access_Token__c and returns the full User records to the meetingNotes LWC, so every connected user's live token reaches the browser of anyone who opens the page. Return only Id and Name.
+- CRITICAL: Meeting_PS and Video_Meeting_PS grant read/edit on User.Google_Access_Token__c and Google_Refresh_Token__c, so permission set holders can read other users' tokens through reports or the API. Apex does not need these field permissions.
+- The OAuth flow has no state parameter, and the VF callback exchanges the code with DML when the page loads. A crafted callback link can attach an attacker's Google account to the victim's Salesforce user (CSRF).
+- The drive.readonly scope covers the user's whole Drive and is a restricted scope under Google app verification.
+- LIKELY PROD FAILURE: GoogleAuth.getValidAccessToken refreshes the token and then updates the User record. MeetingNotesQueueable and MeetingTaskBatch then make another callout, which fails with 'You have uncommitted work pending' whenever the token was expired, which is almost always for a nightly job. The error is caught and logged, so the failure is silent. Tests miss it because of the Test.isRunningTest() ? 'dummy' bypass. Check Meeting_Log__c for this message to confirm.
+- MeetingNotesQueueable loads active configs for all owners but uses the scheduling user's token, so other users' meetings are searched in the wrong Drive (missing notes, and docs with matching names may be picked up).
+- MeetingNotesQueueable: the early returns (start date blank, past end date, blank token) skip 'insert logs', so those logs are lost. The blank-token path also never calls moveToNext, so the remaining configs are skipped.
+- updateMeetingTasks has no ownership or FLS/CRUD check (it updates any task Id the client sends). syncMeetingsToDb upserts on the org-unique Google_Meeting_Id__c and can overwrite another user's config. The admin check uses a hardcoded 'System Administrator' profile name. getActiveUsers has no LIMIT.
+- objects/User contains about 100 managed-package fields (SBQQ, et4ae5, maps, pi__, FSSK, and others) that will fail to deploy to another org. Keep only the Google fields.
+- Unused metadata: the Video_Meeting__c object, Video_Meeting_PS, and the fields Number_Of_Days__c, Duration__c and One_Time_Run__c.
+- Still open from earlier handoffs: the folder has no .git directory; meetingNotes.js has duplicate processAction and handleBulkApprove definitions, runs loadTaskData twice, and shows a success toast before the save finishes; the planned @wire change is not done.
+
+**Touched:** force-app/main/default/customMetadata/Google_Token.Google_Token.md-meta.xml, GoogleAuth.cls, GoogleCalendarService.cls, GoogleGeminiService.cls, GoogleOAuthCallbackController.cls, GoogleOAuthCallback.page, MeetingNotesQueueable.cls, MeetingTaskBatch.cls, MeetingNotesScheduler.cls, Meeting_PS.permissionset-meta.xml, Video_Meeting_PS.permissionset-meta.xml, User.Google_Access_Token__c, User.Google_Refresh_Token__c, Meeting_Configuration__c, Meeting_Task__c, Meeting_Task_After_Save_Flow, objects/User (managed-package fields)"
